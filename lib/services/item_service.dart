@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:inventory_apps/config/api_config.dart';
 import 'package:inventory_apps/models/item_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -62,7 +63,7 @@ class ItemService {
     final url = Uri.parse('${ApiConfig.baseUrl}/items');
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token") ?? "";
-  
+
     try {
       var request = http.MultipartRequest('POST', url);
       request.headers['Authorization'] = 'Bearer $token';
@@ -88,79 +89,108 @@ class ItemService {
     }
   }
 
+  //create item
   Future<ItemModel> createItem({
     required String name,
     required String stock,
-    required File imageFile,
-
+    XFile? imageFile,
   }) async {
+    //hit endpoint api
     final url = Uri.parse("${ApiConfig.baseUrl}/items");
+    //method yang digunakan
     var request = http.MultipartRequest("POST", url);
 
     //ambil token dari shared preference
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token") ?? "";
 
-        request.headers['Authorization'] = 'Bearer $token';
-        request.fields['name'] = name;
-        request.fields['stock'] = stock;
-        request.files.add(
-          await http.MultipartFile.fromPath('image', imageFile.path),
-        );
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['name'] = name;
+    request.fields['stock'] = stock;
+    if (imageFile != null) {
+      final bytes = await imageFile.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes("image", bytes, filename: imageFile.name),
+      );
+    }
 
-        try {
-          var streamedResponse = await request.send();
-          var response = await http.Response.fromStream(streamedResponse);
-          if (response.statusCode == 200 || response.statusCode == 201) {
-            final Map<String, dynamic> 
-            responseData = jsonDecode(response.body);
-            return ItemModel.fromJson(responseData['data']);
-          } else {
-            throw Exception(
-            "Gagal menyimpan data barang : ${response.statusCode}");
-          }
-        }catch (e) {
-          throw Exception("terjadi kesalahan $e");
-        }
+    try {
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return ItemModel.fromJson(responseData['data']);
+      } else {
+        throw Exception("Gagal menyimpan data barang : ${response.statusCode}");
+      }
+    } catch (e) {
+      throw Exception("Terjadi kesalahan $e");
+    }
   }
 
-  //Update Item
+  //UPDATED ITEM
   Future<ItemModel> updateItem({
     required int id,
     required String name,
     required String stock,
-     File? newImageFile,
-
+    XFile? newImageFile,
   }) async {
+    //hit endpoint api
     final url = Uri.parse("${ApiConfig.baseUrl}/items/$id");
+    //method yang digunakan
     var request = http.MultipartRequest("PUT", url);
 
     //ambil token dari shared preference
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token") ?? "";
 
-        request.headers['Authorization'] = 'Bearer $token';
-        request.fields['name'] = name;
-        request.fields['stock'] = stock;
-        if (newImageFile != null) {
-          request.files.add(
-            await http.MultipartFile.fromPath('image', newImageFile.path));
-          
-        }
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['name'] = name;
+    request.fields['stock'] = stock;
 
-        try {
-          var streamedResponse = await request.send();
-          var response = await http.Response.fromStream(streamedResponse);
-          if (response.statusCode == 200 || response.statusCode == 201) {
-            final Map<String, dynamic> 
-            responseData = jsonDecode(response.body);
-            return ItemModel.fromJson(responseData['data']);
-          } else {
-            throw Exception(
-            "Gagal mengubah data barang : ${response.statusCode}");
-          }
-        }catch (e) {
-          throw Exception("terjadi kesalahan $e");
-        }
+    if (newImageFile != null) {
+      final bytes = await newImageFile.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          bytes,
+          filename: newImageFile.name,
+        ),
+      );
+    }
+    try {
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return ItemModel.fromJson(responseData['data']);
+      } else {
+        throw Exception("Gagal mengubah data barang : ${response.statusCode}");
+      }
+    } catch (e) {
+      throw Exception("Terjadi kesalahan $e");
+    }
   }
+Future<bool>deleteItem(int id) async {
+  final url = Uri.parse(
+    "${ApiConfig.baseUrl}/items/$id");
+    final headers = await _getHeaders();
+
+    try {
+       final response = await http.delete(url, headers: headers);
+
+       if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+       } else {
+        throw Exception(
+         "Gagal menghaus data barang: ${response.statusCode}");
+       }
+    }catch (e) {
+      throw Exception("Terjadi kesalahan koneksi : $e");
+       
+    }
+
+   
+}
+
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:inventory_apps/models/item_model.dart';
@@ -33,6 +34,16 @@ class _DataBarangPageState extends State<DataBarangPage> {
     });
   }
 
+  Future <void> _prosesHapusData(
+    int id, BuildContext dialogContext) async {
+      try {
+        await _apiService.deleteItem(id);
+        _showSnackBar(context, "Barang berhasil dihapus", isError: false);
+      }catch (e) {
+        _showSnackBar(context, "Gagal menghapus barang $e", isError: true);
+      }
+    }
+
   void _showSnackBar(BuildContext ctx, String message, {bool isError = true}) {
     ScaffoldMessenger.of(ctx).showSnackBar(
       SnackBar(
@@ -57,23 +68,23 @@ class _DataBarangPageState extends State<DataBarangPage> {
         backgroundColor: isError ? Colors.red : Colors.green,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadiusGeometry.circular(12)),
-          margin: EdgeInsets.all(12),
-       
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.all(12),
       ),
     );
   }
 
   // Menampilkan form bottom sheet untuk tambah atau edit barang
-  void _showBarangFormDialog({Map<String, dynamic>? barang}) {
+  void _showBarangFormDialog({ItemModel? barang}) {
     final isEdit = barang != null;
-    final namaController = TextEditingController(text: barang?['nama'] ?? '');
+    final namaController = TextEditingController(text: barang?.name ?? '');
     final stokController = TextEditingController(
-      text: barang?['stok']?.toString() ?? '',
+      text: barang?.stock.toString() ?? '',
     );
-    File? selectedImage = barang?['image'];
+    XFile? selectedImage;
+
     final formKey = GlobalKey<FormState>();
+    bool isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -142,7 +153,7 @@ class _DataBarangPageState extends State<DataBarangPage> {
                       );
                       if (image != null) {
                         setModalState(() {
-                          selectedImage = File(image.path);
+                          selectedImage = image;
                         });
                       }
                     },
@@ -165,7 +176,12 @@ class _DataBarangPageState extends State<DataBarangPage> {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  Image.file(selectedImage!, fit: BoxFit.cover),
+                                  kIsWeb
+                                      ? Image.network(selectedImage!.path)
+                                      : Image.file(
+                                          File(selectedImage!.path),
+                                          fit: BoxFit.cover,
+                                        ),
                                   Positioned(
                                     top: 8,
                                     right: 8,
@@ -225,72 +241,107 @@ class _DataBarangPageState extends State<DataBarangPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   // Submit button
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Validasi semua field wajib
-                        if (namaController.text.trim().isEmpty) {
-                          _showValidationSnackBar(
-                            bottomSheetContext,
-                            'Nama barang wajib diisi!',
-                          );
-                          return;
-                        }
-                        if (stokController.text.trim().isEmpty ||
-                            int.tryParse(stokController.text.trim()) == null) {
-                          _showValidationSnackBar(
-                            bottomSheetContext,
-                            'Jumlah stok wajib diisi dengan angka!',
-                          );
-                          return;
-                        }
-                        if (selectedImage == null && !isEdit) {
-                          _showValidationSnackBar(
-                            bottomSheetContext,
-                            'Gambar wajib dipilih!',
-                          );
-                          return;
-                        }
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              // Validasi semua field wajib
+                              if (namaController.text.trim().isEmpty) {
+                                _showValidationSnackBar(
+                                  bottomSheetContext,
+                                  'Nama barang wajib diisi!',
+                                );
+                                return;
+                              }
+                              if (stokController.text.trim().isEmpty ||
+                                  int.tryParse(stokController.text.trim()) ==
+                                      null) {
+                                _showValidationSnackBar(
+                                  bottomSheetContext,
+                                  'Jumlah stok wajib diisi dengan angka!',
+                                );
+                                return;
+                              }
+                              if (selectedImage == null && !isEdit) {
+                                _showValidationSnackBar(
+                                  bottomSheetContext,
+                                  'Gambar wajib dipilih!',
+                                );
+                                return;
+                              }
 
-                        setState(() {
-                          _apiService.postItem(
-                            namaController.text,
-                            stokController.text,
-                            selectedImage,
-                          );
-                        });
+                              //  setState(() {
+                              //    if (isEdit) {
+                              //      final index = _barangList.indexWhere(
+                              //        (item) => item['id'] == barang['id'],
+                              //      );
+                              //      if (index != -1) {
+                              //        _barangList[index] = {
+                              //          'id': barang['id'],
+                              //          'nama': namaController.text.trim(),
+                              //          'stok':
+                              //              int.tryParse(stokController.text.trim()) ??
+                              //              0,
+                              //          'image': selectedImage ?? barang['image'],
+                              //        };
+                              //      }
+                              //  } else {
+                              //      _barangList.add({
+                              //        'id': _barangList.length + 1,
+                              //        'nama': namaController.text.trim(),
+                              //        'stok':
+                              //            int.tryParse(stokController.text.trim()) ?? 0,
+                              //        'image': selectedImage,
+                              //      });
+                              //    }
+                              //  });
+                              // await _apiService.createItem(
+                              //         name: namaController.text.trim(),
+                              //         stock: stokController.text.trim(),
+                              //         imageFile: selectedImage!,
+                              //       );
 
-                        //  setState(() {
-                        //    if (isEdit) {
-                        //      final index = _barangList.indexWhere(
-                        //        (item) => item['id'] == barang['id'],
-                        //      );
-                        //      if (index != -1) {
-                        //        _barangList[index] = {
-                        //          'id': barang['id'],
-                        //          'nama': namaController.text.trim(),
-                        //          'stok':
-                        //              int.tryParse(stokController.text.trim()) ??
-                        //              0,
-                        //          'image': selectedImage ?? barang['image'],
-                        //        };
-                        //      }
-                        //  } else {
-                        //      _barangList.add({
-                        //        'id': _barangList.length + 1,
-                        //        'nama': namaController.text.trim(),
-                        //        'stok':
-                        //            int.tryParse(stokController.text.trim()) ?? 0,
-                        //        'image': selectedImage,
-                        //      });
-                        //    }
-                        //  });
-                        Navigator.pop(bottomSheetContext);
-                      },
+                              setModalState(() => isSubmitting = true);
+                              {
+                                try {
+                                  if (isEdit) {
+                                    await _apiService.updateItem(
+                                      id: barang.id,
+                                      name: namaController.text.trim(),
+                                      stock: stokController.text.trim(),
+                                      newImageFile: selectedImage,
+                                    );
+                                  } else {
+                                    await _apiService.createItem(
+                                      name: namaController.text.trim(),
+                                      stock: stokController.text.trim(),
+                                      imageFile: selectedImage,
+                                    );
+                                  }
+                                  Navigator.pop(bottomSheetContext);
+                                  _showSnackBar(
+                                    context,
+                                    isEdit
+                                        ? "Berhasil Diperbarui"
+                                        : "Berhasil Tambah Data",
+                                    isError: false,
+                                  );
+                                  _refreshData();
+                                } catch (e) {
+                                  _showSnackBar(
+                                    bottomSheetContext,
+                                    e.toString(),
+                                    isError: true,
+                                  );
+                                } finally {
+                                  setModalState(() => isSubmitting = false);
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2563EB),
                         foregroundColor: Colors.white,
@@ -347,46 +398,47 @@ class _DataBarangPageState extends State<DataBarangPage> {
   }
 
   /// Menampilkan dialog konfirmasi untuk menghapus barang
-  // void _showHapusBarangDialog(int id) {
-  //   showDialog(
-  //     context: context,
-  //     builder: (dialogContext) => AlertDialog(
-  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-  //       backgroundColor: Colors.white,
-  //       title: const Text(
-  //         'Hapus Barang',
-  //         style: TextStyle(fontWeight: FontWeight.w800),
-  //       ),
-  //       content: const Text('Apakah Anda yakin ingin menghapus barang ini?'),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Navigator.pop(dialogContext),
-  //           child: const Text(
-  //             'Batal',
-  //             style: TextStyle(color: Color(0xFF94A3B8)),
-  //           ),
-  //         ),
-  //         ElevatedButton(
-  //           onPressed: () {
-  //             setState(
-  //               () => _barangList.removeWhere((item) => item['id'] == id),
-  //             );
-  //             Navigator.pop(dialogContext);
-  //           },
-  //           style: ElevatedButton.styleFrom(
-  //             backgroundColor: const Color(0xFFEF4444),
-  //             foregroundColor: Colors.white,
-  //             shape: RoundedRectangleBorder(
-  //               borderRadius: BorderRadius.circular(12),
-  //             ),
-  //             elevation: 0,
-  //           ),
-  //           child: const Text('Hapus'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  void _showHapusBarangDialog(int id) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Hapus Barang',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: const Text('Apakah Anda yakin ingin menghapus barang ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color(0xFF94A3B8)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+            
+               _prosesHapusData(id, dialogContext);
+               _refreshData();
+             
+              Navigator.pop(dialogContext);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -602,15 +654,14 @@ class _DataBarangPageState extends State<DataBarangPage> {
                                   _buildActionButton(
                                     Icons.edit_rounded,
                                     const Color(0xFFF59E0B),
-                                    () {},
-                                    // () => _showBarangFormDialog(barang: barang),
+                                    () => _showBarangFormDialog(barang: barang),
                                   ),
                                   const SizedBox(width: 6),
                                   _buildActionButton(
                                     Icons.delete_rounded,
                                     const Color(0xFFEF4444),
-                                    () {},
-                                    // () => _showHapusBarangDialog(barang['id']),
+                        
+                                    () => _showHapusBarangDialog(barang.id),
                                   ),
                                 ],
                               ),
@@ -627,9 +678,7 @@ class _DataBarangPageState extends State<DataBarangPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showBarangFormDialog();
-        },
+        onPressed: _showBarangFormDialog,
         backgroundColor: const Color(0xFF2563EB),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
