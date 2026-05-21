@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:inventory_apps/services/auth_service.dart';
 import 'package:inventory_apps/utils/color.dart';
 import 'package:inventory_apps/views/data_barang_page.dart';
 import 'package:inventory_apps/views/login_page.dart';
 import 'package:inventory_apps/views/peminjaman_page.dart';
 import 'package:inventory_apps/views/buat_peminjaman_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,10 +21,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<Offset> _slideAnim1;
   late Animation<Offset> _slideAnim2;
   late Animation<Offset> _slideAnim3;
+  String _name = "";
 
   @override
   void initState() {
     super.initState();
+    _loadName();
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -58,6 +62,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
+_loadName() async{
+  final prefs = 
+  await SharedPreferences.getInstance();
+  setState(() {
+    _name = prefs.getString("name") ?? "user";
+  });
+}
   // Menampilkan dialog profil dengan opsi logout
   void _showProfileDialog() {
     showDialog(
@@ -122,9 +133,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Expanded(
                     flex: 2,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(dialogContext); // Tutup dialog laluu,
-                        // Navigate ke login dan hapus semua route sebelumnya
+                      onPressed: () async {
+                        await AuthService.logout();
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
@@ -244,8 +254,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Selamat datang, Staff 👋',
+        Text(
+          'Selamat datang, $_name 👋',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
