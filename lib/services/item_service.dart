@@ -171,26 +171,30 @@ class ItemService {
       throw Exception("Terjadi kesalahan $e");
     }
   }
-Future<bool>deleteItem(int id) async {
-  final url = Uri.parse(
-    "${ApiConfig.baseUrl}/items/$id");
+
+  Future<bool> deleteItem(int id) async {
+    final url = Uri.parse("${ApiConfig.baseUrl}/items/$id");
     final headers = await _getHeaders();
 
     try {
-       final response = await http.delete(url, headers: headers);
+      final response = await http.delete(url, headers: headers);
 
-       if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
-       } else {
-        throw Exception(
-         "Gagal menghaus data barang: ${response.statusCode}");
-       }
-    }catch (e) {
-      throw Exception("Terjadi kesalahan koneksi : $e");
-       
+      } else if (response.statusCode == 400) {
+        final responseData = jsonDecode(response.body);
+        if (responseData['message'] == "Item is already related to a loan") {
+          throw Exception(
+            "Barang tidak bisa dihapus karena sedang dalam peminjaman",
+          );
+        } else {
+          throw Exception("Gagal menghapus barang: ${response.statusCode}");
+        }
+      } else {
+        throw Exception("Gagal menghapus barang: ${response.statusCode}");
+      }
+    } catch (e) {
+      throw Exception("Terjadi kesalahan koneksi: $e");
     }
-
-   
-}
-
+  }
 }

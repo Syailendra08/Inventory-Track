@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:inventory_apps/models/loan_model.dart';
+import 'package:inventory_apps/services/loan_service.dart';
 
 class PeminjamanPage extends StatefulWidget {
   const PeminjamanPage({super.key});
@@ -7,56 +9,32 @@ class PeminjamanPage extends StatefulWidget {
 }
 
 class _PeminjamanPageState extends State<PeminjamanPage> {
-  final List<Map<String, dynamic>> _peminjamanList = [
-    {
-      'id': 1,
-      'nama': 'Budi Santoso',
-      'barang': 'Laptop Dell XPS',
-      'jumlah': 1,
-      'tanggal': '06 Mei 2025',
-      'keterangan': 'Untuk presentasi proyek',
-    },
-    {
-      'id': 2,
-      'nama': 'Rina Kartika',
-      'barang': 'Kamera Canon EOS',
-      'jumlah': 2,
-      'tanggal': '05 Mei 2025',
-      'keterangan': 'Dokumentasi acara',
-    },
-    {
-      'id': 3,
-      'nama': 'Sari Dewi',
-      'barang': 'Tripod Profesional',
-      'jumlah': 3,
-      'tanggal': '03 Mei 2025',
-      'keterangan': 'Kegiatan outdoor',
-    },
-    {
-      'id': 4,
-      'nama': 'Maya Putri',
-      'barang': 'Speaker JBL',
-      'jumlah': 2,
-      'tanggal': '01 Mei 2025',
-      'keterangan': 'Event seminar',
-    },
-    {
-      'id': 5,
-      'nama': 'Doni Saputra',
-      'barang': 'Proyektor Epson',
-      'jumlah': 1,
-      'tanggal': '30 Apr 2025',
-      'keterangan': 'Rapat divisi',
-    },
-    {
-      'id': 6,
-      'nama': 'Lina Marlina',
-      'barang': 'Mic Wireless Boya',
-      'jumlah': 1,
-      'tanggal': '28 Apr 2025',
-      'keterangan': 'Workshop internal',
-    },
-  ];
+  final LoanService _loanService = LoanService();
+  List<LoanModel> _peminjamanList = [];
+  int _currentPage = 1;
+  int _totalPage = 1;
+  int _totalData = 0;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData(page: 1);
+  }
+
+  Future<void> _fetchData({required int page}) async {
+    setState(() => _isLoading = true);
+    _currentPage = page;
+    final result = await _loanService.fetchLoan(page: _currentPage, limit: 5);
+    if (result != null) {
+      setState(() {
+        _peminjamanList = result['loans'] as List<LoanModel>;
+        _totalPage = result['totalPage'];
+        _totalData = result['totalData'];
+      });
+    }
+    setState(() => _isLoading = false);
+  }
 
   /// Menampilkan dialog konfirmasi untuk mengembalikan barang peminjaman
   void _showKembalikanDialog(int id) {
@@ -69,9 +47,7 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
           'Kembalikan Barang',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        content: const Text(
-          'Apakah Anda yakin barang ini sudah dikembalikan?',
-        ),
+        content: const Text('Apakah Anda yakin barang ini sudah dikembalikan?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -82,15 +58,19 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
           ),
           ElevatedButton(
             onPressed: () {
-              setState(
-                () => _peminjamanList.removeWhere((item) => item['id'] == id),
-              );
+              // setState(
+              //   () => _peminjamanList.removeWhere((item) => item['id'] == id),
+              // );
               Navigator.pop(dialogContext);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Row(
                     children: [
-                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Barang berhasil dikembalikan!',
@@ -254,7 +234,9 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
 
             // List Peminjaman
             Expanded(
-              child: ListView.builder(
+              child:
+              _isLoading ? CircularProgressIndicator() : 
+               ListView.builder(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                 itemCount: _peminjamanList.length,
                 itemBuilder: (_, index) {
@@ -299,7 +281,7 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  peminjaman['nama'],
+                                  peminjaman.name,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
@@ -317,7 +299,7 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
                                     const SizedBox(width: 3),
                                     Flexible(
                                       child: Text(
-                                        '${peminjaman['barang']} · ${peminjaman['jumlah']} unit',
+                                        '${peminjaman.item} · ${peminjaman.totalItem} unit',
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: Color(0xFF94A3B8),
@@ -338,7 +320,7 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      peminjaman['tanggal'],
+                                      peminjaman.date,
                                       style: const TextStyle(
                                         fontSize: 11,
                                         color: Color(0xFF94A3B8),
@@ -374,9 +356,8 @@ class _PeminjamanPageState extends State<PeminjamanPage> {
                               const SizedBox(height: 8),
                               // Ikon Kembalikan (menggantikan ikon tong sampah)
                               GestureDetector(
-                                onTap: () => _showKembalikanDialog(
-                                  peminjaman['id'],
-                                ),
+                                // onTap: () =>
+                                //     _showKembalikanDialog(peminjaman['id']),
                                 child: Container(
                                   width: 30,
                                   height: 30,

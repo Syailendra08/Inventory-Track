@@ -39,6 +39,7 @@ class _DataBarangPageState extends State<DataBarangPage> {
       try {
         await _apiService.deleteItem(id);
         _showSnackBar(context, "Barang berhasil dihapus", isError: false);
+        _refreshData();
       }catch (e) {
         _showSnackBar(context, "Gagal menghapus barang $e", isError: true);
       }
@@ -419,11 +420,14 @@ class _DataBarangPageState extends State<DataBarangPage> {
           ),
           ElevatedButton(
             onPressed: () {
+              Navigator.pop(context);
             
-               _prosesHapusData(id, dialogContext);
-               _refreshData();
+              setState(() {
+                 _prosesHapusData(id, dialogContext);
+              });
+              
              
-              Navigator.pop(dialogContext);
+              
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
